@@ -1,11 +1,36 @@
 version: '3.8'
 services:
-  postgres:
+  booking-db:
     image: postgres:15
     container_name: booking-postgres
     environment:
       POSTGRES_DB: booking_db
-      POSTGRES_USER: postgres
+      POSTGRES_USER: booking_db_user
       POSTGRES_PASSWORD: booking_db_pass_word
     ports:
       - "5432:5432"
+    volumes:
+      - booking-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U booking_db_user -d booking_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  booking-service:
+    build: .
+    ports:
+      - "8080:8080"
+    image: booking-service:dev
+    container_name: booking-service
+    depends_on:
+      booking-db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://booking-db:5432/booking_db
+      SPRING_DATASOURCE_USERNAME: booking_db_user
+      SPRING_DATASOURCE_PASSWORD: booking_db_pass_word
+
+
+volumes:
+  booking-postgres-data:
