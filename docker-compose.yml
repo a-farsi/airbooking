@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  # Discovery Service (Eureka Server) - Doit démarrer en premier
+  discovery-service:
+    build:
+      context: ./discovery-service
+      dockerfile: Dockerfile
+    image: discovery-service:dev
+    container_name: discovery-service
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_APPLICATION_NAME: discovery-service
+      SERVER_PORT: 8761
+      EUREKA_INSTANCE_HOSTNAME: discovery-service
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
+      EUREKA_CLIENT_FETCH_REGISTRY: "false"
+    networks:
+      - airbooking-network
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8761 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Config Service - Dépend de Discovery Service
+  config-service:
+    build:
+      context: ./config-service
+      dockerfile: Dockerfile
+    image: config-service:dev
+    container_name: config-service
+    ports:
+      - "8888:8888"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    environment:
+      SPRING_APPLICATION_NAME: config-service
+      SERVER_PORT: 8888
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCH_LOCATIONS: classpath:/config
+      SPRING_PROFILES_ACTIVE: native
+    networks:
+      - airbooking-network
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8888 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Booking Database
+  booking-db:
+    image: postgres:15
+    container_name: booking-postgres
+    environment:
+      POSTGRES_DB: booking_db
+      POSTGRES_USER: booking_db_user
+      POSTGRES_PASSWORD: booking_db_pass_word
+    ports:
+      - "5432:5432"
+    volumes:
+      - booking-postgres-data:/var/lib/postgresql/data
+    networks:
+      - airbooking-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U booking_db_user -d booking_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Booking Service - Dépend de Discovery, Config et Database
+  booking-service:
+    build:
+      context: ./booking-service
+      dockerfile: Dockerfile
+    image: booking-service:dev
+    container_name: booking-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      config-service:
+        condition: service_healthy
+      booking-db:
+        condition: service_healthy
+    environment:
+      SPRING_APPLICATION_NAME: booking-service
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://booking-db:5432/booking_db
+      SPRING_DATASOURCE_USERNAME: booking_db_user
+      SPRING_DATASOURCE_PASSWORD: booking_db_pass_word
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+      SPRING_CLOUD_CONFIG_URI: http://config-service:8888
+      SPRING_CLOUD_CONFIG_ENABLED: "true"
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+    networks:
+      - airbooking-network
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8081 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # Gateway Service - Dépend de Discovery Service
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    image: gateway-service:dev
+    container_name: gateway-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+      booking-service:
+        condition: service_healthy
+    environment:
+      SPRING_APPLICATION_NAME: gateway-service
+      SERVER_PORT: 8080
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      EUREKA_CLIENT_FETCH_REGISTRY: "true"
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+      SPRING_CLOUD_GATEWAY_DISCOVERY_LOCATOR_ENABLED: "true"
+      SPRING_CLOUD_GATEWAY_DISCOVERY_LOCATOR_LOWER_CASE_SERVICE_ID: "true"
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,gateway
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: "true"
+    networks:
+      - airbooking-network
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+networks:
+  airbooking-network:
+    driver: bridge
+
+volumes:
+  booking-postgres-data:
+

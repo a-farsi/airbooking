@@ -8,10 +8,13 @@ RUN apk add --no-cache netcat-openbsd
 WORKDIR /app
 
 # Étape 4 : copier le JAR
-COPY target/booking-service.jar app.jar
+COPY target/gateway-service.jar app.jar
 
 # Étape 5 : exposer le port
-EXPOSE 8081
+EXPOSE 8080
 
 # Étape 6 : point d'entrée
 ENTRYPOINT ["java", "-jar", "app.jar"]
+
+
+

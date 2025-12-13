@@ -23,3 +23,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     boolean existsByFlightIdAndSeatNumbers(Long flightId, String seatNumbers);
 }
 
+
+
+
+

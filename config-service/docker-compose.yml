@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  config-service:
+    build: .
+    ports:
+      - "8888:8888"
+    image: config-service:dev
+    container_name: config-service
+    depends_on:
+      - discovery-service
+    environment:
+      SPRING_APPLICATION_NAME: config-service
+      SERVER_PORT: 8888
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://discovery-service:8761/eureka/
+
+volumes:
+  config-data:
+
+
+

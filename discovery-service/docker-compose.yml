@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  discovery-service:
+    build: .
+    ports:
+      - "8761:8761"
+    image: discovery-service:dev
+    container_name: discovery-service
+    environment:
+      SPRING_APPLICATION_NAME: discovery-service
+      SERVER_PORT: 8761
+
+volumes:
+  discovery-data:
+
+
+

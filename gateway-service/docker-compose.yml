@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  gateway-service:
+    build: .
+    ports:
+      - "8080:8080"
+    image: gateway-service:dev
+    container_name: gateway-service
+    depends_on:
+      - discovery-service
+    environment:
+      SPRING_APPLICATION_NAME: gateway-service
+      SERVER_PORT: 8080
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://discovery-service:8761/eureka/
+
+volumes:
+  gateway-data:
+
+
+
